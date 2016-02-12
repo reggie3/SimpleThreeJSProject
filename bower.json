@@ -1,7 +1,8 @@
 {
   "name": "webappTemplate",
   "dependencies": {
-    "foundation-sites": "^6.1.2"
+    "foundation-sites": "^6.1.2",
+    "three.js": "threejs#*"
   },
   "devDependencies": {}
 }

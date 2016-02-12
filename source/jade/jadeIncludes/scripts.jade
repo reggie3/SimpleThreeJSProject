@@ -2,17 +2,19 @@
 head
   //the build lines below are for script path replacement when the source indexe file is compiled and moved to the distribution
   //the filese beneath it are for the initial gathering and injection of javascript and css files into the index.html file as used in the source 
-  // build:js ./scripts/vendor.js
+  // build:js ./scripts/vendor/vendor.js
   // vendor:js
   // endinject
   // endbuild
-  // build:js ./scripts/myMainJS.js
+  // noMoleste:js
+  // endinject
+  // build:js ./scripts/myMain.js
   // myjs:js
   // endinject
   // endbuild
   // mycss:css
   // endinject
-  // build:css ./css/vendors.css
+  // build:css ./css/vendor.css
   // vendor:css
   // endinject
   // endbuild

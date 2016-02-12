@@ -26,8 +26,23 @@ var scp = require('gulp-scp2');
 var htmlmin = require('gulp-htmlmin');
 var babel = require('gulp-babel');
 var print = require('gulp-print');
+var rename = require("gulp-rename");
+var using = require('gulp-using')   //Lists all files used. Helps you to verify what your patterns catch
+var ignore = require('gulp-ignore');
 
 var secrets = require('./secrets.json');
+
+// GLOBALS
+// array of libraries to not concat
+var noConcat = [''];//['three.js'];
+var jsFilesSource = './source/scripts/vendor/';
+//the strings created for those libraries
+var noConcatStrings = [];
+var copyPaths = [];
+noConcat.forEach(function (file) {
+    noConcatStrings.push('!' + jsFilesSource + file);
+    copyPaths.push(jsFilesSource + file);
+})
 
 gulp.task('default', function () {
     // place code for your default task here
@@ -58,11 +73,11 @@ gulp.task('minidist', function(){
 gulp.task('builddist', function(){
     runSequence(
         'cleandist',   //delete everything in the dist directory
-        'sass',         //compile scss files to css
+        'sourcemysass',         //compile scss files to css in the source directory, we will copy the css files later using 'distcss'
         'jade',         //complie jade files to html
         'inject',       //inject js and css files into html files
         'useref',       //replace links to files in source directories to point to the correct place in the dist directories.  Also copies html files to dist directories    
-        ['distvendorjs', 'distmyjs', 'distmycss', 'distassets']
+        ['distjs', 'distcss', 'distassets']
     )
 });
 
@@ -76,20 +91,50 @@ gulp.task('cleanvendorjs', function(){
     del("source/scripts/vendor/*.js");
 });
 
-//copy vendor javascript files from source javascript vendor directory to scripts directory for distribution
-gulp.task('distvendorjs', function () {
+// copy my javscript files and vendor javscript files from source to dist directory
+gulp.task('distjs', function(){
+    runSequence(
+        ['distmyjs', 'distvendorjs']
+    );
+})
 
-    var jsFiles = ['source/scripts/vendor/*.js'];
+//copy custom javascript files from the source directory to scripts directory for distribution
+gulp.task('distmyjs', function () {
+
+    var jsFiles = ['source/scripts/myjs/*.js'];
     var dest = ['dist/scripts'];
 
     gulp.src(jsFiles)
+        .pipe(filter('*.js'))
+        .pipe(babel({
+            presets: ['es2015']
+        }))
+        .pipe(uglify())
+        .pipe(gulp.dest(dest + ""));
+});
+//copy vendor javascript files from source javascript vendor directory to scripts directory for distribution
+gulp.task('distvendorjs', function () {    
+    var jsFiles = ['./source/scripts/vendor/*.js'].concat(noConcatStrings);
+    console.log(jsFiles);
+    var dest = ['./dist/scripts/vendor'];
+
+    gulp.src(jsFiles)
+        .pipe(ignore.exclude(noConcat))
         .pipe(order([
             "jquery.js",    //jquery needs to be at the top
             "*.js"
         ]))
+        .pipe(using())
         .pipe(concat('vendor.js'))
         .pipe(uglify())
         .pipe(gulp.dest(dest + ""));
+    
+    //finally copy over all the js files that don't play well individually
+    noConcat.forEach(function(file){
+        gulp.src(jsFilesSource + file)
+         .pipe(using())
+         .pipe(gulp.dest(dest + ""));
+    })
 });
 
 //copy the assets folder to distribution
@@ -99,8 +144,6 @@ gulp.task('distassets', function(){
       gulp.src(assets)
         .pipe(gulp.dest(dest + ""));
 });
-
-
 
 // copy my custom css file and vendor css files from source to dist directory
 gulp.task('distcss', function(){
@@ -123,32 +166,12 @@ gulp.task('distmycss', function () {
         .pipe(gulp.dest(dest + ""));
 });
 
-// copy my javscript files and vendor javscript files from source to dist directory
-gulp.task('distjs', function(){
-    runSequence(
-        ['distmyjs', 'distvendorjs']
-    );
-})
 
-//copy custom javascript files from the source directory to scripts directory for distribution
-gulp.task('distmyjs', function () {
-
-    var jsFiles = ['source/scripts/myjs/*.js'];
-    var dest = ['dist/scripts'];
-
-    gulp.src(jsFiles)
-        .pipe(filter('*.js'))
-        .pipe(concat('myjs.js'))
-        .pipe(babel({
-            presets: ['es2015']
-        }))
-        .pipe(uglify())
-        .pipe(gulp.dest(dest + ""));
-});
 //copy vendor css files from bower source directory to dist css directory for distribution
 gulp.task('distvendorcss', function () {
-
-    var cssFiles = ['source/scripts/vendor/*.css'];
+    
+    //don't concat my css file, that file is taken care of in 'distmycss' task
+    var cssFiles = ['source/css/*.css', "!./source/css/mycss.css"];
     var dest = ['dist/css'];
 
     gulp.src(mainBowerFiles().concat(cssFiles))
@@ -171,7 +194,7 @@ gulp.task('sourcevendorjs', function () {
     var jsFiles = ['source/scripts/vendor/*.js'];
     var dest = ['source/scripts/vendor'];
 
-    gulp.src(mainBowerFiles().concat(jsFiles))
+    gulp.src(mainBowerFiles())
         .pipe(plumber({
             errorHandler: onError
         }))
@@ -183,7 +206,6 @@ gulp.task('sourcevendorjs', function () {
 //copy vendor css files from bower source directory to source css directory for development
 gulp.task('sourcevendorcss', function () {
 
-    var cssFiles = ['source/scripts/vendor/**/*.css'];
     var dest = ['source/css'];
 
     gulp.src(mainBowerFiles())
@@ -201,6 +223,25 @@ gulp.task('sourcevendorscss', function () {
         .pipe(filter('*.scss'))
         .pipe(gulp.dest(dest + ""));
 });
+
+//compile, and autoprefix sass files and copy them to the source css direcotry
+gulp.task('sourcemysass', function(){
+    
+    //remove the existing mycss.css file from the css directory
+    del("./source/css/mycss.css");
+    gulp.src('source/scss/partials/myscss.scss')
+        .pipe(plumber({
+            errorHandler: onError
+        }))
+        .pipe(sass().on('error', sass.logError))
+        .pipe(autoprefixer({
+            browsers: ['last 2 versions'],
+            cascade: false
+        }))
+        .pipe(rename('mycss.css'))
+        .pipe(gulp.dest('./source/css/'))
+});
+
 //copy bootstrap font files from bower source directory to source font directory for development
 gulp.task('sourcevendorfonts', function () {
 
@@ -210,12 +251,6 @@ gulp.task('sourcevendorfonts', function () {
     gulp.src(fonts)
         .pipe(gulp.dest(dest + ""));
 });
-
-//get the main bower files and copy them to the appropriate css or js source directory
-gulp.task('copybowerfiles', function(){
-    return gulp.src(mainBowerFiles())
-        .pipe(/* what you want to do with the files */)
-})
 
 // create a dev server that updates when relavent source files change
 gulp.task('browsersync', function () {
@@ -235,26 +270,27 @@ gulp.task('browsersync', function () {
     .on('change', browserSync.reload);  
 });
 
-//compile, concat, and autoprefix sass files and copy them to the source css direcotry
-gulp.task('sass', function(){
-    gulp.src('source/scss/**/*.scss')
-    .pipe(plumber({
-        errorHandler: onError
-    }))
-    .pipe(sass().on('error', sass.logError))
-    .pipe(concat('main.css'))
-    .pipe(autoprefixer({
-            browsers: ['last 2 versions'],
-            cascade: false
-        }))
-    .pipe(gulp.dest('source/css/'))
+//replace useref calls in html files.  This puts links to the correct javascript files in the the dist directory. 
+// typically run it after running the jade command
+gulp.task('useref', function(){
+    //get all html files in the source directory, but avoid html files that might be placed in fonts, jade, scripts, and source.
+    // these are the html files that will be presented to the user
+    return gulp.src(['./source/**/*.html', '!./source/fonts/**/*.html', '!./source/jade/**/*.html', '!./source/scripts/**/*.html', '!./source/css/**/*.html'])
+        .pipe(useref())
+        .pipe(using())
+        .pipe(filter('*.html'))
+        .pipe(gulp.dest('./dist/'));
 });
+
+//run jade compilation then injection in order
+gulp.task('jadeinject', ['jade', 'inject'])
+
 //compile the jade files into html files
-gulp.task('jade', function () {
+gulp.task('jade', function (callback) {
     var YOUR_LOCALS = {};
     
     //get all the jade files in the jade directory and its subdirectory, but don't get jade includes
-    gulp.src(['./source/jade/**/*.jade', '!./source/jade/jadeIncludes/**/*'])
+    var stream = gulp.src(['./source/jade/**/*.jade', '!./source/jade/jadeIncludes/**/*'])
         .pipe(plumber({
         errorHandler: onError
         }))
@@ -262,26 +298,25 @@ gulp.task('jade', function () {
             pretty: true,
             locals: YOUR_LOCALS
         }))
-        .pipe(gulp.dest('source/'));
+        .pipe(gulp.dest('./source/'));
+        
+    return stream;
 });
 
-//replace useref calls in html files.  This puts links to the correct javascript files in the the dist directory. 
-// typically run it after running the jade command
-gulp.task('useref', function(){
-    return gulp.src(['./source/**/*.html'])
-        .pipe(useref())
-        .pipe(gulp.dest('dist'));
-});
-
-gulp.task('inject', function(){
+// inject links to javascript and css files into the jade header file
+gulp.task('inject', ['jade'], function(){
     
     var myjsSources = gulp.src('source/scripts/myjs/*.js', { read: false });
-    var vendorSources =  gulp.src('source/scripts/vendor/*.js', { read: false });
+    // don't put the js libraries that we're not going to concat inside a build section
+    //  that will be replaced by useref later
+    var vendorSources =  
+        gulp.src(['source/scripts/vendor/jquery.js', 'source/scripts/vendor/*.js'].concat(noConcatStrings), 
+            { read: false }
+        );
     var mycssSources = gulp.src('source/css/mycss.css', { read: false });
     var vendorcssSources = gulp.src(['source/css/*.css', '!source/css/mycss.css'], { read: false });
     
-    
-    gulp.src('source/*.html')
+    var stream = gulp.src('source/*.html')
         .pipe(plumber({
             errorHandler: onError
         }))
@@ -289,18 +324,18 @@ gulp.task('inject', function(){
         .pipe(inject(myjsSources, {relative: true, name: "myjs"}))
         .pipe(inject(mycssSources, {relative: true, name: "mycss"}))
         .pipe(inject(vendorcssSources, {relative: true, name: "vendor"}))
-        // .pipe(inject(vendorSources, {relative: true},  {starttag: '<!-- inject:vendor:{{ext}} -->'}))
-        // .pipe(inject(myjsSources, {relative: true}, {starttag: '<!-- inject:myjs:{{ext}} -->'}))
+        //copyPaths holds the path of each js library that will be copied directly, and not concated or replaced by an useref injection later
+        .pipe(inject(gulp.src(copyPaths), {relative: true, name: "noMoleste"}))
         .pipe(gulp.dest('./source/'));
+        
+    return stream;
 });
 
 // Watch Files For Changes
 gulp.task('watch', function () {
-    watch(['./source/jade/*.jade', './source/jade/jadeIncludes/*.jade'], { usePolling: true }, function () {
-        runSequence(
-            'jade',
-            'inject');
-
+    watch(['./source/jade/*.jade', './source/jade/jadeIncludes/*.jade'], 
+        { usePolling: true }, function () {
+            gulp.start('jadeinject');
     });
     
     //watch the source scripts vendor directory for changes and copy main javascript files to it root for use during development
@@ -311,7 +346,7 @@ gulp.task('watch', function () {
     
     //watch scss files and compile them when the change
     watch(['./source/scss/**/*.scss'], { usePolling: true }, function () {
-        gulp.start('sass');
+        gulp.start('sourcemysass');
     });
 });
 

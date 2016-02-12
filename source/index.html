@@ -3,14 +3,17 @@
   <head>
     <!--the build lines below are for script path replacement when the source indexe file is compiled and moved to the distribution-->
     <!--the filese beneath it are for the initial gathering and injection of javascript and css files into the index.html file as used in the source -->
-    <!-- build:js ./scripts/vendor.js-->
+    <!-- build:js ./scripts/vendor/vendor.js-->
     <!-- vendor:js-->
-    <script src="scripts/vendor/foundation.js"></script>
     <script src="scripts/vendor/jquery.js"></script>
+    <script src="scripts/vendor/foundation.js"></script>
+    <script src="scripts/vendor/three.js"></script>
     <script src="scripts/vendor/what-input.js"></script>
     <!-- endinject-->
     <!-- endbuild-->
-    <!-- build:js ./scripts/myMainJS.js-->
+    <!-- noMoleste:js-->
+    <!-- endinject-->
+    <!-- build:js ./scripts/myMain.js-->
     <!-- myjs:js-->
     <script src="scripts/myjs/myMain.js"></script>
     <!-- endinject-->
@@ -18,27 +21,21 @@
     <!-- mycss:css-->
     <link rel="stylesheet" href="css/mycss.css">
     <!-- endinject-->
-    <!-- build:css ./css/vendors.css-->
+    <!-- build:css ./css/vendor.css-->
     <!-- vendor:css-->
     <link rel="stylesheet" href="css/foundation-flex.css">
     <link rel="stylesheet" href="css/foundation.css">
-    <link rel="stylesheet" href="css/main.css">
     <!-- endinject-->
     <!-- endbuild-->
     
     
-    <title>Index</title>
+    <title>Simple Three.js Sample 4</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
   </head>
   <body>
-    <h1>Web Application Template</h1>
-    <div id="container" class="col">
-      <p>This is a template for a web application project</p>
-      <p>It includes the following features</p>
-      <ul>
-        <li>Visual Studio Code line wrap for 80 characters</li>
-        <li>JQuery Integration</li>
-        <li>Zurb Foundation Integration</li>
-      </ul>
+    <div id="messageShade">
+      <div class="alert-box warning round"><a href="#" class="close">&times;</a></div>
     </div>
   </body>
 </html>

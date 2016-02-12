@@ -1,0 +1,9 @@
+#canvasContainer {
+  background: blue; }
+
+#canvas {
+  width: 100%;
+  height: 100%; }
+
+#messageShade {
+  z-index: 100; }
